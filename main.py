@@ -2,132 +2,76 @@ import cv2
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.signal import find_peaks
-from scipy.ndimage import rotate
+from scipy.signal import argrelextrema
 
-class CellCounter:
-    def __init__(self):
-        self.debug = True
-        
-    def preprocess_image(self, img):
-        # 自適應中值濾波
-        blur = cv2.adaptiveThreshold(img, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
-                                   cv2.THRESH_BINARY, 11, 2)
-        
-        # Sobel邊緣檢測
-        y_sobel = cv2.Sobel(blur, cv2.CV_64F, 0, 1, ksize=3)
-        y_sobel = np.absolute(y_sobel)
-        y_sobel = np.uint8(y_sobel)
-        
-        # 自適應直方圖均衡化
-        clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))
-        enhanced = clahe.apply(y_sobel)
-        
-        return enhanced
-        
-    def detect_roi(self, img):
-        # 投影到Y軸
-        y_proj = np.sum(img, axis=1)
-        
-        # 使用OTSU自動找閾值
-        thresh = threshold_otsu(y_proj)
-        
-        # 找到有意義的區域
-        valid_rows = np.where(y_proj > thresh)[0]
-        start_idx = valid_rows[0]
-        end_idx = valid_rows[-1]
-        
-        # 加入安全邊界
-        margin = 50
-        start_idx = max(0, start_idx - margin)
-        end_idx = min(img.shape[0], end_idx + margin)
-        
-        return start_idx, end_idx
-        
-    def detect_rotation(self, img):
-        # 使用霍夫變換檢測主要線條
-        edges = cv2.Canny(img, 50, 150, apertureSize=3)
-        lines = cv2.HoughLines(edges, 1, np.pi/180, 200)
-        
-        if lines is not None:
-            angles = []
-            for rho, theta in lines[:, 0]:
-                angle = np.degrees(theta)
-                if angle < 45:  # 假設cell大致垂直
-                    angles.append(angle)
-            
-            if angles:
-                return np.median(angles)
-        return 0
-        
-    def count_cells(self, img):
-        # 預處理
-        processed = self.preprocess_image(img)
-        
-        # 檢測ROI
-        start_idx, end_idx = self.detect_roi(processed)
-        roi = processed[start_idx:end_idx, :]
-        
-        # 檢測和修正旋轉
-        angle = self.detect_rotation(roi)
-        if abs(angle) > 0.5:
-            roi = rotate(roi, angle)
-            
-        # 在多個位置取樣
-        num_samples = 7
-        sample_positions = np.linspace(0.1, 0.9, num_samples) * roi.shape[1]
-        sample_positions = sample_positions.astype(int)
-        
-        # 動態確定峰值檢測參數
-        mean_intensity = np.mean(roi)
-        std_intensity = np.std(roi)
-        
-        peak_counts = []
-        for pos in sample_positions:
-            profile = roi[:, pos]
-            
-            # 動態設定參數
-            height = mean_intensity + 0.5 * std_intensity
-            distance = int(roi.shape[0] / 200)  # 基於預期的cell數量
-            
-            peaks, _ = find_peaks(profile, 
-                                height=height,
-                                distance=distance,
-                                prominence=std_intensity)
-            peak_counts.append(len(peaks))
-            
-            if self.debug:
-                plt.figure(figsize=(10, 5))
-                plt.plot(profile)
-                plt.plot(peaks, profile[peaks], "x")
-                plt.title(f"Sample at position {pos}")
-                plt.show()
-        
-        # 使用中位數作為最終結果
-        cell_count = int(np.median(peak_counts))
-        
-        return cell_count, roi
-
-def main():
-    counter = CellCounter()
-    
-    img_title = ['20070907_160746_Cell_40.png', '20070907_160814_Cell_40.png']
-    
-    for title in img_title:
-        img = cv2.imread(f'HW_Image/{title}', cv2.IMREAD_GRAYSCALE)
-        count, roi = counter.count_cells(img)
-        
-        print(f"Image: {title}")
-        print(f"Estimated cell count: {count}")
-        
-        plt.figure(figsize=(15, 5))
-        plt.subplot(121)
-        plt.imshow(img, cmap='gray')
-        plt.title("Original Image")
-        
-        plt.subplot(122)
-        plt.imshow(roi, cmap='gray')
-        plt.title(f"ROI (Detected {count} cells)")
-        plt.show()
 
 if __name__ == '__main__':
-    main()
+
+    img_title = ['20070907_160746_Cell_40.png', '20070907_160814_Cell_40.png', '20070907_161304_Cell_40.png',
+                 '20070907_162752_Cell_40.png', '20070907_163631_Cell_28.png', '20070907_164013_Cell_79.png',
+                 '20070907_170041_Cell_114.png', '20070907_171232_Wafer_100.png', '20070907_171317_Wafer_100.png']
+
+    img = cv2.imread(f'HW_Image/{img_title[0]}', cv2.IMREAD_GRAYSCALE)
+
+    #sobel y
+    y_sobel = cv2.Sobel(img, cv2.CV_16S, 0, 1)
+    cv2.imwrite('sobel_y.png', y_sobel)
+
+
+
+    # blur = cv2.medianBlur(img, 9)
+    #img vs blur
+    # plt.imshow(img, cmap='gray')
+    # plt.show()
+    # plt.imshow(blur, cmap='gray')
+    # plt.show()
+    # copy_img = np.copy(blur)
+    # y_sobel = cv2.Sobel(img, cv2.CV_16S, 0, 1)
+    # y_sobel = cv2.convertScaleAbs(y_sobel)
+    # dst = cv2.equalizeHist(y_sobel)
+
+    # img_ref = dst[:, 300]
+
+    # start_idx = np.where(img_ref > 220)[0][0]
+    # end_idx = np.where(img_ref > 220)[0][-1]
+    # # print(end_idx)
+    # if np.mean(img_ref[:500]) > 100:
+    #     start_idx = 520
+
+    # if end_idx > 5000:  # 4160 上方物體長度
+    #     end_idx -= 4180
+
+    # # print(start_idx)
+    # # print(end_idx)
+    # roi_img = copy_img[start_idx: end_idx]
+
+    # vt_1 = roi_img[:, 50]
+    # vt_2 = roi_img[:, 200]
+    # vt_3 = roi_img[:, 500]
+    # vt_4 = roi_img[:, 800]
+    # vt_5 = roi_img[:, 950]
+
+    # cv2.imwrite('ROI_img.png', img[start_idx: end_idx])
+
+    # # 找出峰值
+    # peaks1, _ = find_peaks(vt_1, height=15, width=5, distance=5)
+    # peaks2, _ = find_peaks(vt_2, height=15, width=5, distance=5)
+    # peaks3, _ = find_peaks(vt_3, height=15, width=5, distance=5)
+    # peaks4, _ = find_peaks(vt_4, height=15, width=5, distance=5)
+    # peaks5, _ = find_peaks(vt_5, height=15, width=5, distance=5)
+    # peak_list = [len(peaks1), len(peaks2), len(peaks3), len(peaks4), len(peaks5)]
+
+    # # print(peak_list)
+    # print('總共有', round(np.mean(peak_list[0])), '片')
+    # # print('總共有', np.argmax(np.bincount(peak_list)), '片')
+
+    # plt.imshow(dst, cmap='gray')
+    # plt.show()
+    # # plt.plot(peaks1, vt_1[peaks1], "x", color="red")
+    # plt.vlines(peaks3-20, 0, 1020, color="red")
+    # plt.plot(np.zeros_like(vt_3), "--", color="gray")
+    # pimg = plt.imread('ROI_img.png')
+
+    # plt.imshow(np.rot90(pimg), cmap='gray')
+    # plt.plot(vt_3)
+    # plt.show()
