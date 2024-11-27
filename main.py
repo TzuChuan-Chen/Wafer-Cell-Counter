@@ -101,9 +101,7 @@ if __name__ == '__main__':
     if not os.path.exists('results'):
         os.makedirs('results')
 
-    img_title = ['20070907_160746_Cell_40.png', '20070907_160814_Cell_40.png', '20070907_161304_Cell_40.png',
-                 '20070907_162752_Cell_40.png', '20070907_163631_Cell_28.png', '20070907_164013_Cell_79.png',
-                 '20070907_170041_Cell_114.png', '20070907_171232_Wafer_100.png', '20070907_171317_Wafer_100.png']
+    img_title = ['20070907_171232_Wafer_100_enhanced.png']
 
     for title in img_title:
         try:
